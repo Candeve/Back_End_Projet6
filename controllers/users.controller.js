@@ -60,7 +60,7 @@ function generateToken(userId) {
 }
 
 function hashPassword(password) {
-  const salt = bcrypt.genSaltSync(8); // Salt à 8
+  const salt = bcrypt.genSaltSync(8); 
   return bcrypt.hashSync(password, salt);
 }
 
