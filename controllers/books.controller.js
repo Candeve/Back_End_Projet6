@@ -10,7 +10,7 @@ booksRouter.get("/:id", getBookById);
 booksRouter.get("/", getBooks);
 booksRouter.post("/", checkToken, upload.single("image"), postBook);
 booksRouter.delete("/:id", checkToken, deleteBook);
-booksRouter.put("/:id", checkToken, upload.single("image"), putBook);
+booksRouter.put("/:id", checkToken, upload.single("image"), putBook); // Route PUT pour la mise à jour
 booksRouter.post("/:id/rating", checkToken, postRating);
 
 async function postRating(req, res) {
@@ -59,7 +59,8 @@ async function getBestRating(req, res) {
 
 async function putBook(req, res) {
   const id = req.params.id;
-  const bookData = JSON.parse(req.body.book);
+  let bookData = req.body;
+
   try {
     const book = await Book.findById(id);
     if (!book) {
@@ -68,11 +69,15 @@ async function putBook(req, res) {
     if (book.userId !== req.tokenPayload.userId) {
       return res.status(403).send("Vous ne pouvez pas modifier les livres des autres utilisateurs");
     }
+
     if (req.file) {
-      bookData.imageUrl = req.file.filename;
+      // Si un fichier est fourni, les données du livre sont encodées en chaîne de caractères
+      bookData = JSON.parse(req.body.book);
+      bookData.imageUrl = req.file.filename; // Mettre à jour l'URL de l'image
     }
-    await Book.findByIdAndUpdate(id, bookData);
-    res.send("Livre mis à jour");
+
+    const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
+    res.send({ message: "Livre mis à jour", book: updatedBook });
   } catch (e) {
     console.error("Erreur lors de la mise à jour du livre:", e);
     return res.status(500).send("Une erreur est survenue: " + e.message);
