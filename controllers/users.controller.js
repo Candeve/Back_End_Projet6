@@ -1,4 +1,3 @@
-// controllers/users.controller.js
 const express = require("express");
 const User = require("../models/User").User;
 const bcrypt = require("bcrypt");
