@@ -10,7 +10,7 @@ booksRouter.get("/:id", getBookById);
 booksRouter.get("/", getBooks);
 booksRouter.post("/", checkToken, upload.single("image"), postBook);
 booksRouter.delete("/:id", checkToken, deleteBook);
-booksRouter.put("/:id", checkToken, upload.single("image"), putBook); // Route PUT pour la mise à jour
+booksRouter.put("/:id", checkToken, upload.single("image"), putBook); 
 booksRouter.post("/:id/rating", checkToken, postRating);
 
 async function postRating(req, res) {
@@ -71,9 +71,8 @@ async function putBook(req, res) {
     }
 
     if (req.file) {
-      // Si un fichier est fourni, les données du livre sont encodées en chaîne de caractères
       bookData = JSON.parse(req.body.book);
-      bookData.imageUrl = req.file.filename; // Mettre à jour l'URL de l'image
+      bookData.imageUrl = req.file.filename; 
     }
 
     const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
