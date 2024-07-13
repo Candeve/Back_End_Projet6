@@ -12,6 +12,6 @@ const IMAGES_PUBLIC_URL = process.env.IMAGES_PUBLIC_URL || 'public/images';
 
 app.use(cors());
 app.use(express.json());
-app.use(IMAGES_PUBLIC_URL, express.static(IMAGES_FOLDER)); // Servir les fichiers statiques
+app.use(IMAGES_PUBLIC_URL, express.static(IMAGES_FOLDER));
 
 module.exports = app;
