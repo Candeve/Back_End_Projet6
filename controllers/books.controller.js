@@ -1,6 +1,5 @@
 const express = require("express");
 const { upload } = require("../middlewares/multer");
-const optimizeImage = require("../middlewares/sharp");
 const Book = require("../models/Book").Book;
 const jwt = require("jsonwebtoken");
 
@@ -9,9 +8,9 @@ const booksRouter = express.Router();
 booksRouter.get("/bestrating", getBestRating);
 booksRouter.get("/:id", getBookById);
 booksRouter.get("/", getBooks);
-booksRouter.post("/", checkToken, upload.single("image"), optimizeImage, postBook); 
+booksRouter.post("/", checkToken, upload.single("image"), postBook);
 booksRouter.delete("/:id", checkToken, deleteBook);
-booksRouter.put("/:id", checkToken, upload.single("image"), optimizeImage, putBook); 
+booksRouter.put("/:id", checkToken, upload.single("image"), putBook);
 booksRouter.post("/:id/rating", checkToken, postRating);
 
 async function postRating(req, res) {
@@ -132,6 +131,9 @@ async function getBookById(req, res) {
 
 async function postBook(req, res) {
   const bookData = JSON.parse(req.body.book);
+  if (!req.file) {
+    return res.status(400).send("Image manquante");
+  }
   bookData.imageUrl = req.file.filename;
   try {
     const book = await Book.create(bookData);

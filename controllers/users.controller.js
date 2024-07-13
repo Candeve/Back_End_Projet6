@@ -1,12 +1,13 @@
+// controllers/users.controller.js
+const express = require("express");
 const User = require("../models/User").User;
 const bcrypt = require("bcrypt");
-const express = require("express");
 const jwt = require("jsonwebtoken");
 
-const accountsRouter = express.Router();
+const usersRouter = express.Router();
 
-accountsRouter.post("/signup", signUp);
-accountsRouter.post("/login", login);
+usersRouter.post("/signup", signUp);
+usersRouter.post("/login", login);
 
 async function signUp(req, res) {
   const { email, password } = req.body;
@@ -60,8 +61,8 @@ function generateToken(userId) {
 }
 
 function hashPassword(password) {
-  const salt = bcrypt.genSaltSync(8);
+  const salt = bcrypt.genSaltSync(8); // Salt à 8
   return bcrypt.hashSync(password, salt);
 }
 
-module.exports = accountsRouter;
+module.exports = usersRouter;
