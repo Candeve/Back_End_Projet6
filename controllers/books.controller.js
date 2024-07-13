@@ -11,7 +11,7 @@ booksRouter.get("/", getBooks);
 booksRouter.post("/", checkToken, upload.single("image"), postBook);
 booksRouter.delete("/:id", checkToken, deleteBook);
 booksRouter.put("/:id", checkToken, upload.single("image"), putBook); 
-booksRouter.post("/:id/rating", checkToken, postRating);
+booksRouter.post("/:id/rating", checkToken, postRating); // Assurer que la route utilise bien l'ID du livre
 
 async function postRating(req, res) {
   const id = req.params.id;
@@ -32,7 +32,7 @@ async function postRating(req, res) {
     book.ratings.push({ userId, grade: rating });
     book.averageRating = calculateAverageRating(book.ratings);
     await book.save();
-    res.send("Note ajoutée");
+    res.send({ message: "Note ajoutée", book: { ...book.toObject(), id: book._id } }); 
   } catch (e) {
     console.error("Erreur lors de l'ajout de la note:", e);
     return res.status(500).send("Une erreur est survenue: " + e.message);
@@ -41,7 +41,8 @@ async function postRating(req, res) {
 
 function calculateAverageRating(ratings) {
   const sum = ratings.reduce((total, r) => total + r.grade, 0);
-  return sum / ratings.length;
+  const average = sum / ratings.length;
+  return parseFloat(average.toFixed(2));
 }
 
 async function getBestRating(req, res) {
@@ -71,15 +72,17 @@ async function putBook(req, res) {
     }
 
     if (req.file) {
+      // Si un fichier est fourni, les données du livre sont encodées en chaîne de caractères
       bookData = JSON.parse(req.body.book);
-      bookData.imageUrl = req.file.filename; 
+      bookData.imageUrl = req.file.filename; // Mettre à jour l'URL de l'image
     }
 
-    const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
+    await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
+    const updatedBook = await Book.findById(id); // Récupère le livre mis à jour
     res.send({ message: "Livre mis à jour", book: updatedBook });
   } catch (e) {
-    console.error("Erreur lors de la mise à jour du livre:", e);
-    return res.status(500).send("Une erreur est survenue: " + e.message);
+    console.error("Erreur lors de la mise à jour du livre:", e); // Ligne modifiée pour les logs d'erreurs
+    return res.status(500).send("Une erreur est survenue: " + e.message); // Ligne modifiée pour les logs d'erreurs
   }
 }
 
