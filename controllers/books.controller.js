@@ -158,7 +158,7 @@ async function getBooks(req, res) {
 }
 
 function getAbsoluteImagePath(fileName) {
-  return `${process.env.PUBLIC_URL}/${process.env.IMAGES_PUBLIC_URL}/${fileName}`;
+  return `http://localhost:4000${process.env.IMAGES_PUBLIC_URL}/${fileName}`;
 }
 
 module.exports = booksRouter;
