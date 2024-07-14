@@ -1,5 +1,5 @@
 const express = require("express");
-const { upload } = require("../middlewares/multer");
+const { upload, optimizeImage } = require("../middlewares/multer");
 const Book = require("../models/Book").Book;
 const jwt = require("jsonwebtoken");
 
@@ -8,31 +8,41 @@ const booksRouter = express.Router();
 booksRouter.get("/bestrating", getBestRating);
 booksRouter.get("/:id", getBookById);
 booksRouter.get("/", getBooks);
-booksRouter.post("/", checkToken, upload.single("image"), postBook);
+booksRouter.post("/", checkToken, upload.single("image"), optimizeImage, postBook);
 booksRouter.delete("/:id", checkToken, deleteBook);
-booksRouter.put("/:id", checkToken, upload.single("image"), putBook); 
-booksRouter.post("/:id/rating", checkToken, postRating); // Assurer que la route utilise bien l'ID du livre
+booksRouter.put("/:id", checkToken, upload.single("image"), optimizeImage, putBook);
+booksRouter.post("/:id/rating", checkToken, postRating);
 
 async function postRating(req, res) {
   const id = req.params.id;
   if (!id) {
     return res.status(400).send("ID du livre manquant");
   }
-  const rating = req.body.rating;
+
+  const { rating } = req.body;
   const userId = req.tokenPayload.userId;
+
   try {
     const book = await Book.findById(id);
     if (!book) {
       return res.status(404).send("Livre non trouvé");
     }
+
     const previousRating = book.ratings.find(r => r.userId === userId);
     if (previousRating) {
       return res.status(400).send("Vous avez déjà noté ce livre");
     }
-    book.ratings.push({ userId, grade: rating });
+
+    const newRating = {
+      userId,
+      grade: rating
+    };
+
+    book.ratings.push(newRating);
     book.averageRating = calculateAverageRating(book.ratings);
     await book.save();
-    res.send({ message: "Note ajoutée", book: { ...book.toObject(), id: book._id } }); 
+
+    res.status(200).json(book); // Retourner le livre mis à jour
   } catch (e) {
     console.error("Erreur lors de l'ajout de la note:", e);
     return res.status(500).send("Une erreur est survenue: " + e.message);
@@ -42,7 +52,7 @@ async function postRating(req, res) {
 function calculateAverageRating(ratings) {
   const sum = ratings.reduce((total, r) => total + r.grade, 0);
   const average = sum / ratings.length;
-  return parseFloat(average.toFixed(2));
+  return parseFloat(average.toFixed(1)); // Limiter à 1 chiffre après la virgule
 }
 
 async function getBestRating(req, res) {
@@ -77,12 +87,11 @@ async function putBook(req, res) {
       bookData.imageUrl = req.file.filename; // Mettre à jour l'URL de l'image
     }
 
-    await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
-    const updatedBook = await Book.findById(id); // Récupère le livre mis à jour
-    res.send({ message: "Livre mis à jour", book: updatedBook });
+    const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
+    res.status(200).json(updatedBook); // Retourner le livre mis à jour
   } catch (e) {
-    console.error("Erreur lors de la mise à jour du livre:", e); // Ligne modifiée pour les logs d'erreurs
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Ligne modifiée pour les logs d'erreurs
+    console.error("Erreur lors de la mise à jour du livre:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
