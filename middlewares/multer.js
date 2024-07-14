@@ -16,26 +16,30 @@ const upload = multer({
   storage
 });
 
-const optimizeImage = async (req, res, next) => {
-  if (!req.file) return next();
+const uploadAndOptimizeImage = (req, res, next) => {
+  upload.single("image")(req, res, async function (err) {
+    if (err) {
+      return res.status(500).send("Une erreur est survenue lors du téléchargement de l'image.");
+    }
 
-  const filePath = path.join(String(process.env.IMAGES_FOLDER), req.file.filename);
-  const optimizedFilePath = path.join(String(process.env.IMAGES_FOLDER), 'optimized-' + req.file.filename);
+    if (!req.file) {
+      return next();
+    }
 
-  try {
-    await sharp(filePath)
-      .resize(800, 800, {
-        fit: sharp.fit.inside,
-        withoutEnlargement: true
-      })
-      .toFile(optimizedFilePath);
+    const originalFilePath = path.join(String(process.env.IMAGES_FOLDER), req.file.filename);
+    const optimizedFilePath = path.join(String(process.env.IMAGES_FOLDER), 'optimized-' + req.file.filename);
 
-    req.file.filename = 'optimized-' + req.file.filename;
-    next();
-  } catch (err) {
-    console.error("Erreur lors de l'optimisation de l'image:", err);
-    next(err);
-  }
+    try {
+      await sharp(originalFilePath)
+        .resize(800, 800, { fit: "inside" })
+        .toFile(optimizedFilePath);
+      req.file.filename = 'optimized-' + req.file.filename;
+      next();
+    } catch (e) {
+      console.error("Erreur lors de l'optimisation de l'image:", e);
+      return res.status(500).send("Une erreur est survenue lors de l'optimisation de l'image.");
+    }
+  });
 };
 
-module.exports = { upload, optimizeImage };
+module.exports = { uploadAndOptimizeImage };

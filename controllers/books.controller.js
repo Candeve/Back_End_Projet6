@@ -1,5 +1,5 @@
 const express = require("express");
-const { upload, optimizeImage } = require("../middlewares/multer");
+const { uploadAndOptimizeImage } = require("../middlewares/multer");
 const Book = require("../models/Book").Book;
 const jwt = require("jsonwebtoken");
 
@@ -8,12 +8,12 @@ const booksRouter = express.Router();
 booksRouter.get("/bestrating", getBestRating);
 booksRouter.get("/:id", getBookById);
 booksRouter.get("/", getBooks);
-booksRouter.post("/", checkToken, upload.single("image"), optimizeImage, postBook);
+booksRouter.post("/", checkToken, uploadAndOptimizeImage, postBook);
 booksRouter.delete("/:id", checkToken, deleteBook);
-booksRouter.put("/:id", checkToken, upload.single("image"), optimizeImage, putBook);
-booksRouter.post("/:id/rating", checkToken, postRating);
+booksRouter.put("/:id", checkToken, uploadAndOptimizeImage, updateBook);
+booksRouter.post("/:id/rating", checkToken, addRating);
 
-async function postRating(req, res) {
+async function addRating(req, res) {
   const id = req.params.id;
   if (!id) {
     return res.status(400).send("ID du livre manquant");
@@ -28,21 +28,23 @@ async function postRating(req, res) {
       return res.status(404).send("Livre non trouvé");
     }
 
-    const previousRating = book.ratings.find(r => r.userId === userId);
-    if (previousRating) {
-      return res.status(400).send("Vous avez déjà noté ce livre");
+    const existingRating = book.ratings.find(r => r.userId === userId);
+    if (existingRating) {
+      existingRating.grade = rating;
+    } else {
+      const newRating = {
+        userId,
+        grade: rating
+      };
+      book.ratings.push(newRating);
     }
 
-    const newRating = {
-      userId,
-      grade: rating
-    };
-
-    book.ratings.push(newRating);
     book.averageRating = calculateAverageRating(book.ratings);
     await book.save();
 
-    res.status(200).json(book); // Retourner le livre mis à jour
+    // Ensure imageUrl is always included
+    book.imageUrl = getAbsoluteImagePath(book.imageUrl);
+    res.status(200).json(book);
   } catch (e) {
     console.error("Erreur lors de l'ajout de la note:", e);
     return res.status(500).send("Une erreur est survenue: " + e.message);
@@ -52,7 +54,7 @@ async function postRating(req, res) {
 function calculateAverageRating(ratings) {
   const sum = ratings.reduce((total, r) => total + r.grade, 0);
   const average = sum / ratings.length;
-  return parseFloat(average.toFixed(1)); // Limiter à 1 chiffre après la virgule
+  return parseFloat(average.toFixed(1));
 }
 
 async function getBestRating(req, res) {
@@ -68,10 +70,9 @@ async function getBestRating(req, res) {
   }
 }
 
-async function putBook(req, res) {
+async function updateBook(req, res) {
   const id = req.params.id;
-  let bookData = req.body;
-
+  const bookData = req.body.book ? JSON.parse(req.body.book) : {};
   try {
     const book = await Book.findById(id);
     if (!book) {
@@ -82,13 +83,13 @@ async function putBook(req, res) {
     }
 
     if (req.file) {
-      // Si un fichier est fourni, les données du livre sont encodées en chaîne de caractères
-      bookData = JSON.parse(req.body.book);
-      bookData.imageUrl = req.file.filename; // Mettre à jour l'URL de l'image
+      bookData.imageUrl = req.file.filename;
     }
 
     const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
-    res.status(200).json(updatedBook); // Retourner le livre mis à jour
+    // Ensure imageUrl is always included
+    updatedBook.imageUrl = getAbsoluteImagePath(updatedBook.imageUrl);
+    res.send({ message: "Livre mis à jour", book: updatedBook });
   } catch (e) {
     console.error("Erreur lors de la mise à jour du livre:", e);
     return res.status(500).send("Une erreur est survenue: " + e.message);
@@ -153,6 +154,7 @@ async function postBook(req, res) {
   bookData.imageUrl = req.file.filename;
   try {
     const book = await Book.create(bookData);
+    book.imageUrl = getAbsoluteImagePath(book.imageUrl);
     res.send({ message: "Livre ajouté", book });
   } catch (e) {
     console.error("Erreur lors de l'ajout du livre:", e);
