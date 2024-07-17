@@ -42,7 +42,6 @@ async function addRating(req, res) {
     book.averageRating = calculateAverageRating(book.ratings);
     await book.save();
 
-    // Ensure imageUrl is always included
     book.imageUrl = getAbsoluteImagePath(book.imageUrl);
     res.status(200).json(book);
   } catch (e) {
@@ -87,7 +86,6 @@ async function updateBook(req, res) {
     }
 
     const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
-    // Ensure imageUrl is always included
     updatedBook.imageUrl = getAbsoluteImagePath(updatedBook.imageUrl);
     res.send({ message: "Livre mis à jour", book: updatedBook });
   } catch (e) {
