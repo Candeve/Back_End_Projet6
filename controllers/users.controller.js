@@ -59,9 +59,9 @@ function generateToken(userId) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" });
 }
 
-function hashPassword(password) {
-  const salt = bcrypt.genSaltSync(8); 
-  return bcrypt.hashSync(password, salt);
+function hashPassword(password) { // Pour le password
+  const salt = bcrypt.genSaltSync(8);  // Génère un salt de 8 - Un salt trop élevé peut ralentir le serveur - Trop bas cela crée des risques de sécurité
+  return bcrypt.hashSync(password, salt); // Crée un hash sécurisé du mot de passe en utilisant le salt
 }
 
 module.exports = usersRouter;

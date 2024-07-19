@@ -113,19 +113,19 @@ async function deleteBook(req, res) {
 }
 
 function checkToken(req, res, next) {
-  const headers = req.headers;
-  const authorization = headers.authorization;
+  const headers = req.headers; // Récupère les en-têtes de la requête
+  const authorization = headers.authorization; // Récupère l'en-tête d'autorisation
   if (!authorization) {
-    return res.status(401).send("Non autorisé");
+    return res.status(401).send("Non autorisé"); // Si aucun en-tête d'autorisation, retourne 401
   }
-  const token = authorization.split(" ")[1];
+  const token = authorization.split(" ")[1]; // Extrait le token de l'en-tête d'autorisation
   try {
-    const tokenPayload = jwt.verify(token, process.env.JWT_SECRET);
-    req.tokenPayload = tokenPayload;
-    next();
+    const tokenPayload = jwt.verify(token, process.env.JWT_SECRET); // Vérifie le token JWT
+    req.tokenPayload = tokenPayload; // Attache le payload du token à l'objet de requête
+    next(); // Passe au middleware ou routeur suivant
   } catch (e) {
-    console.error("Erreur de vérification du token:", e);
-    return res.status(401).send("Non autorisé");
+    console.error("Erreur de vérification du token:", e); // Log l'erreur de vérification
+    return res.status(401).send("Non autorisé"); // Retourne 401 si le token est invalide
   }
 }
 
