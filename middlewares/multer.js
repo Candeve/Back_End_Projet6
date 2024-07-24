@@ -1,7 +1,9 @@
+// Nous importons les modules nécessaires
 const multer = require("multer");
 const path = require("path");
 const sharp = require("sharp");
 
+// Configuration du stockage des fichiers
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, String(process.env.IMAGES_FOLDER)); // Définit le dossier de destination des fichiers
@@ -12,10 +14,12 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ // Crée une instance de Multer avec le stockage configuré
+// Crée une instance de Multer avec le stockage configuré
+const upload = multer({
   storage
 });
 
+// Middleware pour gérer le téléchargement et l'optimisation d'une image
 const uploadAndOptimizeImage = (req, res, next) => {
   upload.single("image")(req, res, async function (err) { // Gère le téléchargement d'une seule image
     if (err) {
@@ -42,4 +46,5 @@ const uploadAndOptimizeImage = (req, res, next) => {
   });
 };
 
+// Nous exportons la fonction de middleware
 module.exports = { uploadAndOptimizeImage };
