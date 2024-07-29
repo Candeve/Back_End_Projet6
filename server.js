@@ -3,7 +3,7 @@ require("dotenv").config();
 // Nous importons l'application Express
 const app = require("./operation/app");
 // Nous importons les routeurs des utilisateurs et des livres
-const usersRouter = require("./controllers/user.controller");
+const usersRouter = require("./controllers/users.controller");
 const booksRouter = require("./controllers/books.controller");
 
 const PORT = process.env.PORT || 4000; // Définit le port sur lequel l'application va écouter
