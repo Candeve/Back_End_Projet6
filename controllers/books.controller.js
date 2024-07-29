@@ -1,194 +1,171 @@
-// Nous importons les modules nécessaires
 const express = require("express");
-const { uploadAndOptimizeImage } = require("../middlewares/multer");
+const { upload, processImage } = require("../middlewares/multer");
 const Book = require("../models/Book").Book;
 const jwt = require("jsonwebtoken");
 
-// Nous créons un routeur Express pour les livres
 const booksRouter = express.Router();
 
-// Nous définissons les routes et les associons aux fonctions correspondantes
 booksRouter.get("/bestrating", getBestRating);
 booksRouter.get("/:id", getBookById);
 booksRouter.get("/", getBooks);
-booksRouter.post("/", checkToken, uploadAndOptimizeImage, postBook);
+booksRouter.post("/", checkToken, upload.single("image"), processImage, postBook);
 booksRouter.delete("/:id", checkToken, deleteBook);
-booksRouter.put("/:id", checkToken, uploadAndOptimizeImage, updateBook);
-booksRouter.post("/:id/rating", checkToken, addRating);
+booksRouter.put("/:id", checkToken, upload.single("image"), processImage, putBook);
+booksRouter.post("/:id/rating", checkToken, postRating);
 
-// Fonction pour ajouter une note à un livre
-async function addRating(req, res) {
-  const id = req.params.id; // Récupère l'ID du livre depuis les paramètres de la requête
+async function postRating(req, res) {
+  const id = req.params.id;
   if (!id) {
-    return res.status(400).send("ID du livre manquant"); // Vérifie si l'ID est présent
+    return res.status(400).send("ID du livre manquant");
   }
-
-  const { rating } = req.body; // Récupère la note du corps de la requête
-  const userId = req.tokenPayload.userId; // Récupère l'ID de l'utilisateur depuis le token
-
+  const rating = req.body.rating;
+  const userId = req.tokenPayload.userId;
   try {
-    const book = await Book.findById(id); // Cherche le livre par son ID
+    const book = await Book.findById(id);
     if (!book) {
-      return res.status(404).send("Livre non trouvé"); // Vérifie si le livre existe
+      return res.status(404).send("Livre non trouvé");
     }
-
-    const existingRating = book.ratings.find(r => r.userId === userId); // Vérifie si l'utilisateur a déjà noté ce livre
-    if (existingRating) {
-      existingRating.grade = rating; // Met à jour la note existante
-    } else {
-      const newRating = {
-        userId,
-        grade: rating
-      };
-      book.ratings.push(newRating); // Ajoute une nouvelle note
+    const previousRating = book.ratings.find(r => r.userId === userId);
+    if (previousRating) {
+      return res.status(400).send("Vous avez déjà noté ce livre");
     }
-
-    book.averageRating = calculateAverageRating(book.ratings); // Calcule la nouvelle moyenne des notes
-    await book.save(); // Sauvegarde les modifications du livre
-
-    book.imageUrl = getAbsoluteImagePath(book.imageUrl); // Met à jour le chemin de l'image
-    res.status(200).json(book); // Retourne le livre mis à jour
+    book.ratings.push({ userId, grade: rating });
+    book.averageRating = calculateAverageRating(book.ratings);
+    await book.save();
+    book.imageUrl = getAbsoluteImagePath(book.imageUrl);
+    res.send(book);
   } catch (e) {
-    console.error("Erreur lors de l'ajout de la note:", e); // Log l'erreur
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Retourne une erreur
+    console.error("Erreur lors de l'ajout de la note:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
-// Fonction pour calculer la moyenne des notes
 function calculateAverageRating(ratings) {
-  const sum = ratings.reduce((total, r) => total + r.grade, 0); // Calcule la somme des notes
-  const average = sum / ratings.length; // Calcule la moyenne
-  return parseFloat(average.toFixed(1)); // Retourne la moyenne arrondie à une décimale
+  const sum = ratings.reduce((total, r) => total + r.grade, 0);
+  return (sum / ratings.length).toFixed(1);
 }
 
-// Fonction pour récupérer les livres avec les meilleures notes
 async function getBestRating(req, res) {
   try {
-    const books = await Book.find().sort({ averageRating: -1 }).limit(3); // Cherche les trois livres avec les meilleures notes
+    const books = await Book.find().sort({ averageRating: -1 }).limit(3);
     books.forEach(book => {
-      book.imageUrl = getAbsoluteImagePath(book.imageUrl); // Met à jour le chemin de l'image
+      book.imageUrl = getAbsoluteImagePath(book.imageUrl);
     });
-    res.send(books); // Retourne les livres
+    res.send(books);
   } catch (e) {
-    console.error("Erreur lors de la récupération des meilleurs livres:", e); // Log l'erreur
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Retourne une erreur
+    console.error("Erreur lors de la récupération des meilleurs livres:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
-// Fonction pour mettre à jour un livre
-async function updateBook(req, res) {
-  const id = req.params.id; // Récupère l'ID du livre depuis les paramètres de la requête
-  const bookData = req.body.book ? JSON.parse(req.body.book) : {}; // Récupère les données du livre depuis le corps de la requête
+async function putBook(req, res) {
+  const id = req.params.id;
+  let bookData = req.body;
+
   try {
-    const book = await Book.findById(id); // Cherche le livre par son ID
+    const book = await Book.findById(id);
     if (!book) {
-      return res.status(404).send("Livre non trouvé"); // Vérifie si le livre existe
+      return res.status(404).send("Livre non trouvé");
     }
     if (book.userId !== req.tokenPayload.userId) {
-      return res.status(403).send("Vous ne pouvez pas modifier les livres des autres utilisateurs"); // Vérifie si l'utilisateur est le propriétaire du livre
+      return res.status(403).send("Vous ne pouvez pas modifier les livres des autres utilisateurs");
     }
 
     if (req.file) {
-      bookData.imageUrl = req.file.filename; // Met à jour le chemin de l'image si un fichier est téléchargé
+      
+      bookData = JSON.parse(req.body.book);
+      bookData.imageUrl = req.file.filename; 
     }
 
-    const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true }); // Met à jour les données du livre
-    updatedBook.imageUrl = getAbsoluteImagePath(updatedBook.imageUrl); // Met à jour le chemin de l'image
-    res.send({ message: "Livre mis à jour", book: updatedBook }); // Retourne le livre mis à jour
+    const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
+    res.send({ message: "Livre mis à jour", book: updatedBook });
   } catch (e) {
-    console.error("Erreur lors de la mise à jour du livre:", e); // Log l'erreur
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Retourne une erreur
+    console.error("Erreur lors de la mise à jour du livre:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
-// Fonction pour supprimer un livre
 async function deleteBook(req, res) {
-  const id = req.params.id; // Récupère l'ID du livre depuis les paramètres de la requête
+  const id = req.params.id;
   try {
-    const book = await Book.findById(id); // Cherche le livre par son ID
+    const book = await Book.findById(id);
     if (!book) {
-      return res.status(404).send("Livre non trouvé"); // Vérifie si le livre existe
+      return res.status(404).send("Livre non trouvé");
     }
     if (book.userId !== req.tokenPayload.userId) {
-      return res.status(403).send("Vous ne pouvez pas supprimer les livres des autres utilisateurs"); // Vérifie si l'utilisateur est le propriétaire du livre
+      return res.status(403).send("Vous ne pouvez pas supprimer les livres des autres utilisateurs");
     }
-    await Book.findByIdAndDelete(id); // Supprime le livre
-    res.send("Livre supprimé"); // Retourne un message de succès
+    await Book.findByIdAndDelete(id);
+    res.send("Livre supprimé");
   } catch (e) {
-    console.error("Erreur lors de la suppression du livre:", e); // Log l'erreur
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Retourne une erreur
+    console.error("Erreur lors de la suppression du livre:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
-// Middleware pour vérifier le token JWT
 function checkToken(req, res, next) {
-  const headers = req.headers; // Récupère les en-têtes de la requête
-  const authorization = headers.authorization; // Récupère l'en-tête d'autorisation
+  const headers = req.headers;
+  const authorization = headers.authorization;
   if (!authorization) {
-    return res.status(401).send("Non autorisé"); // Si aucun en-tête d'autorisation, retourne 401
+    return res.status(401).send("Non autorisé");
   }
-  const token = authorization.split(" ")[1]; // Extrait le token de l'en-tête d'autorisation
+  const token = authorization.split(" ")[1];
   try {
-    const tokenPayload = jwt.verify(token, process.env.JWT_SECRET); // Vérifie le token JWT
-    req.tokenPayload = tokenPayload; // Attache le payload du token à l'objet de requête
-    next(); // Passe au middleware ou routeur suivant
+    const tokenPayload = jwt.verify(token, process.env.JWT_SECRET);
+    req.tokenPayload = tokenPayload;
+    next();
   } catch (e) {
-    console.error("Erreur de vérification du token:", e); // Log l'erreur de vérification
-    return res.status(401).send("Non autorisé"); // Retourne 401 si le token est invalide
+    console.error("Erreur de vérification du token:", e);
+    return res.status(401).send("Non autorisé");
   }
 }
 
-// Fonction pour récupérer un livre par son ID
 async function getBookById(req, res) {
-  const id = req.params.id; // Récupère l'ID du livre depuis les paramètres de la requête
+  const id = req.params.id;
   try {
-    const book = await Book.findById(id); // Cherche le livre par son ID
+    const book = await Book.findById(id);
     if (!book) {
-      return res.status(404).send("Livre non trouvé"); // Vérifie si le livre existe
+      return res.status(404).send("Livre non trouvé");
     }
-    book.imageUrl = getAbsoluteImagePath(book.imageUrl); // Met à jour le chemin de l'image
-    res.send(book); // Retourne le livre
+    book.imageUrl = getAbsoluteImagePath(book.imageUrl);
+    res.send(book);
   } catch (e) {
-    console.error("Erreur lors de la récupération du livre:", e); // Log l'erreur
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Retourne une erreur
+    console.error("Erreur lors de la récupération du livre:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
-// Fonction pour ajouter un livre
 async function postBook(req, res) {
-  const bookData = JSON.parse(req.body.book); // Récupère les données du livre depuis le corps de la requête
+  const bookData = JSON.parse(req.body.book);
   if (!req.file) {
-    return res.status(400).send("Image manquante"); // Vérifie si une image est téléchargée
+    return res.status(400).send("Image manquante");
   }
-  bookData.imageUrl = req.file.filename; // Met à jour le chemin de l'image
+  bookData.imageUrl = req.file.filename;
   try {
-    const book = await Book.create(bookData); // Crée un nouveau livre
-    book.imageUrl = getAbsoluteImagePath(book.imageUrl); // Met à jour le chemin de l'image
-    res.send({ message: "Livre ajouté", book }); // Retourne le livre ajouté
+    const book = await Book.create(bookData);
+    book.imageUrl = getAbsoluteImagePath(book.imageUrl);
+    res.send({ message: "Livre ajouté", book });
   } catch (e) {
-    console.error("Erreur lors de l'ajout du livre:", e); // Log l'erreur
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Retourne une erreur
+    console.error("Erreur lors de l'ajout du livre:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
-// Fonction pour récupérer tous les livres
 async function getBooks(req, res) {
   try {
-    const books = await Book.find(); // Cherche tous les livres
+    const books = await Book.find();
     books.forEach(book => {
-      book.imageUrl = getAbsoluteImagePath(book.imageUrl); // Met à jour le chemin de l'image
+      book.imageUrl = getAbsoluteImagePath(book.imageUrl);
     });
-    res.send(books); // Retourne les livres
+    res.send(books);
   } catch (e) {
-    console.error("Erreur lors de la récupération des livres:", e); // Log l'erreur
-    return res.status(500).send("Une erreur est survenue: " + e.message); // Retourne une erreur
+    console.error("Erreur lors de la récupération des livres:", e);
+    return res.status(500).send("Une erreur est survenue: " + e.message);
   }
 }
 
-// Fonction pour obtenir le chemin absolu de l'image
 function getAbsoluteImagePath(fileName) {
-  return `http://localhost:4000${process.env.IMAGES_PUBLIC_URL}/${fileName}`; // Construit le chemin complet de l'image
+  return `http://localhost:4000${process.env.IMAGES_PUBLIC_URL}/${fileName}`;
 }
 
-// Nous exportons le routeur des livres
 module.exports = booksRouter;

@@ -1,25 +1,21 @@
-// Nous importons mongoose
 const mongoose = require("mongoose");
 
-// Définition du schéma du livre
 const BookSchema = new mongoose.Schema({
-  userId: String, // ID de l'utilisateur
-  title: String, // Titre du livre
-  author: String, // Auteur du livre
-  imageUrl: String, // URL de l'image du livre
-  year: Number, // Année de publication
-  genre: String, // Genre du livre
+  userId: String,
+  title: String,
+  author: String,
+  imageUrl: String,
+  year: Number,
+  genre: String,
   ratings: [
     {
-      userId: String, // ID de l'utilisateur ayant noté
-      grade: Number // Note attribuée
+      userId: String,
+      grade: Number
     }
   ],
-  averageRating: Number // Note moyenne du livre
+  averageRating: Number
 });
 
-// Création du modèle Book basé sur le schéma défini
 const Book = mongoose.model("Book", BookSchema);
 
-// Nous exportons le modèle Book
 module.exports = { Book };
