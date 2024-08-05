@@ -23,6 +23,9 @@ async function processImage(req, res, next) {
     const filePath = path.join(process.env.IMAGES_FOLDER, fileName);
     fs.writeFileSync(filePath, processedImage);
 
+
+    delete req.file.buffer;
+
     req.file.filename = fileName;
     next();
   } catch (err) {

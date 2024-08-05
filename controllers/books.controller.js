@@ -2,6 +2,8 @@ const express = require("express");
 const { upload, processImage } = require("../middlewares/multer");
 const Book = require("../models/Book").Book;
 const jwt = require("jsonwebtoken");
+const fs = require("fs");
+const path = require("path");
 
 const booksRouter = express.Router();
 
@@ -72,9 +74,19 @@ async function putBook(req, res) {
     }
 
     if (req.file) {
-      
+
       bookData = JSON.parse(req.body.book);
       bookData.imageUrl = req.file.filename; 
+
+  
+      if (book.imageUrl) {
+        const oldImagePath = path.join(process.env.IMAGES_FOLDER, book.imageUrl);
+        fs.unlink(oldImagePath, err => {
+          if (err) {
+            console.error("Erreur lors de la suppression de l'ancienne image:", err);
+          }
+        });
+      }
     }
 
     const updatedBook = await Book.findByIdAndUpdate(id, { $set: bookData }, { new: true });
@@ -95,6 +107,17 @@ async function deleteBook(req, res) {
     if (book.userId !== req.tokenPayload.userId) {
       return res.status(403).send("Vous ne pouvez pas supprimer les livres des autres utilisateurs");
     }
+
+  
+    if (book.imageUrl) {
+      const imagePath = path.join(process.env.IMAGES_FOLDER, book.imageUrl);
+      fs.unlink(imagePath, err => {
+        if (err) {
+          console.error("Erreur lors de la suppression de l'image:", err);
+        }
+      });
+    }
+
     await Book.findByIdAndDelete(id);
     res.send("Livre supprimé");
   } catch (e) {
