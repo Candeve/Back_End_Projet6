@@ -10,8 +10,17 @@ usersRouter.post("/login", login);
 
 async function signUp(req, res) {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: "Email et mot de passe sont obligatoires" });
+  
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
+  
+  if (!email || !emailRegex.test(email)) {
+    return res.status(400).json({ message: "Email invalide" });
+  }
+
+  if (!password || !passwordRegex.test(password)) {
+    return res.status(400).json({ message: "Le mot de passe doit contenir au moins 6 caractères, avec au moins une lettre et un chiffre" });
   }
 
   try {
@@ -31,15 +40,18 @@ async function signUp(req, res) {
 
 async function login(req, res) {
   const { email, password } = req.body;
+
   if (!email || !password) {
     return res.status(400).json({ message: "Email et mot de passe sont obligatoires" });
   }
+
   try {
     const user = await User.findOne({ email });
     if (!user) {
       console.log("Utilisateur non trouvé");
       return res.status(401).json({ message: "Identifiants incorrects" });
     }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.log("Mot de passe incorrect");

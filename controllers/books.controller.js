@@ -20,8 +20,14 @@ async function postRating(req, res) {
   if (!id) {
     return res.status(400).send("ID du livre manquant");
   }
+
   const rating = req.body.rating;
   const userId = req.tokenPayload.userId;
+
+  if (rating < 0 || rating > 5) {
+    return res.status(400).send("La note doit être comprise entre 0 et 5");
+  }
+
   try {
     const book = await Book.findById(id);
     if (!book) {
