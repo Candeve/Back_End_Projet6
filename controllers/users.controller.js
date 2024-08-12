@@ -2,6 +2,7 @@ const express = require("express");
 const User = require("../models/User").User;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const validator = require("validator");
 
 const usersRouter = express.Router();
 
@@ -10,17 +11,16 @@ usersRouter.post("/login", login);
 
 async function signUp(req, res) {
   const { email, password } = req.body;
-  
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
-  
-  if (!email || !emailRegex.test(email)) {
-    return res.status(400).json({ message: "Email invalide" });
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email et mot de passe sont obligatoires" });
   }
 
-  if (!password || !passwordRegex.test(password)) {
-    return res.status(400).json({ message: "Le mot de passe doit contenir au moins 6 caractères, avec au moins une lettre et un chiffre" });
+  if (!validator.isEmail(email)) {
+    return res.status(400).json({ message: "Email non valide" });
+  }
+
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ message: "Le mot de passe doit contenir au moins 6 caractères" });
   }
 
   try {
@@ -40,9 +40,12 @@ async function signUp(req, res) {
 
 async function login(req, res) {
   const { email, password } = req.body;
-
   if (!email || !password) {
     return res.status(400).json({ message: "Email et mot de passe sont obligatoires" });
+  }
+
+  if (!validator.isEmail(email)) {
+    return res.status(400).json({ message: "Email non valide" });
   }
 
   try {
@@ -51,7 +54,6 @@ async function login(req, res) {
       console.log("Utilisateur non trouvé");
       return res.status(401).json({ message: "Identifiants incorrects" });
     }
-
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.log("Mot de passe incorrect");
@@ -74,6 +76,10 @@ function generateToken(userId) {
 function hashPassword(password) {
   const salt = bcrypt.genSaltSync(8); 
   return bcrypt.hashSync(password, salt);
+}
+
+function isValidPassword(password) {
+  return password.length >= 6;
 }
 
 module.exports = usersRouter;

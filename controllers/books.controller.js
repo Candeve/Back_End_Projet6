@@ -21,11 +21,11 @@ async function postRating(req, res) {
     return res.status(400).send("ID du livre manquant");
   }
 
-  const rating = req.body.rating;
+  const rating = parseFloat(req.body.rating);
   const userId = req.tokenPayload.userId;
 
-  if (rating < 0 || rating > 5) {
-    return res.status(400).send("La note doit être comprise entre 0 et 5");
+  if (isNaN(rating) || rating < 0 || rating > 5) {
+    return res.status(400).send("La note doit être un nombre compris entre 0 et 5");
   }
 
   try {
@@ -80,11 +80,9 @@ async function putBook(req, res) {
     }
 
     if (req.file) {
-
       bookData = JSON.parse(req.body.book);
-      bookData.imageUrl = req.file.filename; 
+      bookData.imageUrl = req.file.filename;
 
-  
       if (book.imageUrl) {
         const oldImagePath = path.join(process.env.IMAGES_FOLDER, book.imageUrl);
         fs.unlink(oldImagePath, err => {
@@ -114,7 +112,6 @@ async function deleteBook(req, res) {
       return res.status(403).send("Vous ne pouvez pas supprimer les livres des autres utilisateurs");
     }
 
-  
     if (book.imageUrl) {
       const imagePath = path.join(process.env.IMAGES_FOLDER, book.imageUrl);
       fs.unlink(imagePath, err => {
